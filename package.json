@@ -1,0 +1,24 @@
+{
+  "name": "finatix-di-ioc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "c.illies <c.illies@finatix.de> (https://finatix.de)",
+  "license": "ISC",
+  "dependencies": {
+    "injection-js": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.24",
+    "jest": "^27.0.6",
+    "ts-jest": "^27.0.3",
+    "ts-node": "^10.1.0",
+    "typescript": "^4.3.5"
+  }
+}
