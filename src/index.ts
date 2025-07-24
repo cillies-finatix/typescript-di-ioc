@@ -1,4 +1,4 @@
-import {Injector} from "./services/injector";
+import {Injector} from "./injection/injector";
 import {providerConfig} from "./provider-config";
 import {Application} from "./application";
 

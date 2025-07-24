@@ -1,12 +1,7 @@
-import {
-    InjectionToken,
-    Provider,
-    Type,
-} from "injection-js";
-
-interface FactoryArray<T> extends Array<() => T> {
-    multi?: boolean;
-}
+import { InjectionToken } from './injection-token';
+import { Type } from './type';
+import { Provider } from './providers';
+import { FactoryArray } from './factory-array';
 
 export class Injector {
     // Singletone Injector
@@ -56,9 +51,7 @@ export class Injector {
     private static createFactory(provider: Provider, injector: Injector) {
         // Existing Provider nutzen einfach den "bekannten" Provider
         if ("useExisting" in provider && provider.useExisting) {
-            return () => {
-                return injector.get(provider.useExisting);
-            };
+            return () => injector.get(provider.useExisting);
         }
         // Value Provider, geben den Wert einfach zurück ohne Instantiierung
         if ("useValue" in provider && provider.useValue) {
@@ -134,8 +127,11 @@ export class Injector {
     private createProviderByFactory<T>(factory: () => T): T {
         try {
             return factory();
-        } catch (err) {
-            throw new Error(`Could not create provider: ${err.message}`);
+        } catch (err:unknown) {
+            if (err instanceof Error) {
+                throw new Error(`Could not create provider: ${err.message}`);
+            }
+            throw new Error(`Could not create provider}`);
         }
     }
 
