@@ -4,54 +4,50 @@ import { Provider } from './providers';
 import { FactoryArray } from './factory-array';
 
 export class Injector {
-    // Singletone Injector
-    private static instance?: Injector;
+    readonly #parent: Injector | null = null;
 
-    static getInstance() {
-        if (!Injector.instance) {
-            Injector.instance = new Injector();
+    constructor(parent?: Injector) {
+        // Wenn ein Parent-Injector angegeben ist, dann wird dieser
+        // als Fallback verwendet, wenn der aktuelle Injector eine
+        // Dependency nicht auflösen kann.
+        if (parent) {
+            this.#parent = parent;
         }
-
-        return Injector.instance;
     }
 
-    //
-    static destroy() {
-        if (Injector.instance) {
-            Injector.instance.factories.clear();
-            Injector.instance.instances.clear();
-        }
-        Injector.instance = undefined;
-    }
-
+    // interne Liste von #Factories und erzeugten Instanzen
+    // Auch hier wird das Singleton Entwurfsmuster verfolgt.
+    readonly #factories: Map<any, any> = new Map();
+    readonly #instances: Map<any, any> = new Map();
+    
     // Injector mit Provider-Liste erzeugen.
     static resolveAndCreate(providerConfig: Provider[], parent?: Injector): Injector {
-        const injector = parent ?? Injector.getInstance();
+        const injector = new Injector(parent);
 
         for (const provider of providerConfig) {
-            const factory = this.createFactory(provider, injector);
+            const factory = this.#createFactory(provider, injector);
 
-            const id: any = this.getToken(provider);
+            const id = this.#getToken(provider);
             if ("multi" in provider && provider.multi === true) {
-                const multiFactory: FactoryArray<any> = injector.factories.get(id) ?? [];
+                const multiFactory: FactoryArray<any> = injector.#factories.get(id) ?? [];
                 multiFactory.multi = true;
                 multiFactory.push(factory);
-                injector.factories.set(id, multiFactory);
+                injector.#factories.set(id, multiFactory);
             } else {
-                injector.factories.set(id, factory);
+                injector.#factories.set(id, factory);
             }
         }
         return injector;
     }
 
-    private static getToken(provider: Provider) {
+    static #getToken(provider: Provider): unknown {
         return "provide" in provider ? provider.provide : provider;
     }
 
-    private static createFactory(provider: Provider, injector: Injector) {
+    static #createFactory(provider: Provider, injector: Injector) {
         // Existing Provider nutzen einfach den "bekannten" Provider
         if ("useExisting" in provider && provider.useExisting) {
-            return () => injector.get(provider.useExisting);
+            return () => injector.inject(provider.useExisting);
         }
         // Value Provider, geben den Wert einfach zurück ohne Instantiierung
         if ("useValue" in provider && provider.useValue) {
@@ -78,53 +74,41 @@ export class Injector {
         }
 
         return () => {
-            const resolvedDeps = deps.map((dep: any) => injector.get(dep));
+            const resolvedDeps = deps.map((dep: any) => injector.inject(dep));
             return fac(...resolvedDeps)
         };
     }
 
-// Alias für `SimpleInjector.getInstance().get(...)`
-    static get(provider: any) {
-        return Injector.getInstance().get(provider);
-    }
-
-    // Alias für `SimpleInjector.getInstance().inject<T>(...)`
-    static inject<T>(provider: InjectionToken<T> | Type<T>): T {
-        return Injector.getInstance().inject<T>(provider);
-    }
-
-    // interne Liste von Factories und erzeugten Instanzen
-    // Auch hier wird das Singleton Entwurfsmuster verfolgt.
-    private readonly factories: Map<any, any> = new Map();
-    private readonly instances: Map<any, any> = new Map();
-
-    // Alias für `this.inject<any>(...)`
-    get(provider: any): any {
-        return Injector.getInstance().inject<any>(provider);
-    }
-
     // Dependency holen - mit Typ
     inject<T>(providerId: InjectionToken<T> | Type<T>): T {
-        if (!this.factories.has(providerId)) {
+        if (!this.#factories.has(providerId)) {
+            try {
+                // Wenn der Provider nicht im aktuellen Injector gefunden wurde,
+                // dann wird der Parent-Injector nach dem Provider durchsucht.
+                if (this.#parent) {
+                    return this.#parent.inject(providerId);
+                }
+            } catch {}
+
             throw new Error('Could not resolve provider');
         }
 
         // Singleton: Es wird immer nur eine Provider Instanz erzeugt.
-        if (!this.instances.has(providerId)) {
-            const factory = this.factories.get(providerId);
+        if (!this.#instances.has(providerId)) {
+            const factory = this.#factories.get(providerId);
             let instance: any;
             if (factory.multi) {
-                instance = this.createProviderByMultiFactory(factory)
+                instance = this.#createProviderByMultiFactory(factory)
             } else {
-                instance = this.createProviderByFactory(factory);
+                instance = this.#createProviderByFactory(factory);
             }
-            this.instances.set(providerId, instance);
+            this.#instances.set(providerId, instance);
         }
 
-        return this.instances.get(providerId) as T;
+        return this.#instances.get(providerId) as T;
     }
 
-    private createProviderByFactory<T>(factory: () => T): T {
+    #createProviderByFactory<T>(factory: () => T): T {
         try {
             return factory();
         } catch (err:unknown) {
@@ -135,10 +119,10 @@ export class Injector {
         }
     }
 
-    private createProviderByMultiFactory<T>(factories: FactoryArray<T>): T[] {
+    #createProviderByMultiFactory<T>(factories: FactoryArray<T>): T[] {
         const multiProviders = [];
         for (const factory of factories) {
-            multiProviders.push(this.createProviderByFactory(factory));
+            multiProviders.push(this.#createProviderByFactory(factory));
         }
         return multiProviders;
     }

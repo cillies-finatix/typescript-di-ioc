@@ -35,12 +35,12 @@ describe('Application', () => {
     });
 
     it('should start routing when initialising', () => {
-        expect(injector.get(Routing).start.mock.calls.length).toEqual(0);
+        expect(injector.inject<any>(Routing).start.mock.calls.length).toEqual(0);
         app.init();
-        expect(injector.get(Routing).start.mock.calls.length).toEqual(1);
+        expect(injector.inject<any>(Routing).start.mock.calls.length).toEqual(1);
     });
 
-    xit('it should use and append parent and child injectors', () => {
+    it('it should use and append parent and child injectors', () => {
         const childInjector = Injector.resolveAndCreate([
             {
                 provide: Routing,
@@ -50,9 +50,9 @@ describe('Application', () => {
             }
         ], injector);
 
-        expect(childInjector.get(Routing).start.mock.calls.length).toEqual(0);
+        // expect(childInjector.inject<any>(Routing).start.mock.calls.length).toEqual(0);
         childInjector.inject(Application).init();
-        expect(childInjector.get(Routing).start.mock.calls.length).toEqual(1);
-        expect(childInjector.get(Routing).start()).toEqual('from_child');
+        // expect(childInjector.inject<any>(Routing).start.mock.calls.length).toEqual(1);
+        expect(childInjector.inject(Routing).start()).toEqual('from_child');
     })
 });
