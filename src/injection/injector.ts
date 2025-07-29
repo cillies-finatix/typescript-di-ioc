@@ -4,25 +4,32 @@ import { Provider } from './providers';
 import { FactoryArray } from './factory-array';
 
 export class Injector {
-    readonly #parent: Injector | null = null;
+    private static readonly rootInjector = new Injector();
+    private readonly parent: Injector | null = null;
+    private readonly children: Set<Injector> = new Set();
+
+    // interne Liste von #Factories und erzeugten Instanzen
+    // Auch hier wird das Singleton Entwurfsmuster verfolgt.
+    readonly #factories: Map<any, any> = new Map();
+    readonly #instances: Map<any, any> = new Map();
 
     constructor(parent?: Injector) {
         // Wenn ein Parent-Injector angegeben ist, dann wird dieser
         // als Fallback verwendet, wenn der aktuelle Injector eine
         // Dependency nicht auflösen kann.
         if (parent) {
-            this.#parent = parent;
+            this.parent = parent;
+            this.parent.registerChildInjector(this);
         }
     }
 
-    // interne Liste von #Factories und erzeugten Instanzen
-    // Auch hier wird das Singleton Entwurfsmuster verfolgt.
-    readonly #factories: Map<any, any> = new Map();
-    readonly #instances: Map<any, any> = new Map();
+    registerChildInjector<T extends Injector>(childInjector: T): void {
+        this.children.add(childInjector);
+    }
     
     // Injector mit Provider-Liste erzeugen.
     static resolveAndCreate(providerConfig: Provider[], parent?: Injector): Injector {
-        const injector = new Injector(parent);
+        const injector = parent ? new Injector(parent) : Injector.rootInjector;
 
         for (const provider of providerConfig) {
             const factory = this.#createFactory(provider, injector);
@@ -37,6 +44,7 @@ export class Injector {
                 injector.#factories.set(id, factory);
             }
         }
+
         return injector;
     }
 
@@ -85,8 +93,8 @@ export class Injector {
             try {
                 // Wenn der Provider nicht im aktuellen Injector gefunden wurde,
                 // dann wird der Parent-Injector nach dem Provider durchsucht.
-                if (this.#parent) {
-                    return this.#parent.inject(providerId);
+                if (this.parent) {
+                    return this.parent.inject(providerId);
                 }
             } catch {}
 
